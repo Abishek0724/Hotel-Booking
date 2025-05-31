@@ -1,49 +1,22 @@
-import User from "./models/User.js";
-import { Webhook } from "svix";
+// server.js
+import express from "express";
+import cors from "cors";
+import "dotenv/config";
+import bodyParser from "body-parser";
+import connectDB from "./configs/db.js";
+import clerkWebhooks from "./controllers/clerkWebhooks.js";
 
-const clerkWebhooks = async (req, res) => {
-  try {
-    const whook = new Webhook(process.env.CLERK_WEBHOOK_SECRET);
+connectDB();
+const app = express();
+app.use(cors());
 
-    const headers = {
-      "svix-id": req.headers["svix-id"],
-      "svix-timestamp": req.headers["svix-timestamp"],
-      "svix-signature": req.headers["svix-signature"],
-    };
+// All other JSON routes
+app.use(express.json());
 
-    const evt = await whook.verify(JSON.stringify(req.body), headers);
-    const { data, type } = evt;
+// Clerk webhook uses raw body
+app.post("/api/clerk", bodyParser.raw({ type: "application/json" }), clerkWebhooks);
 
-    const userData = {
-      _id: data.id,
-      email: data.email_addresses?.[0]?.email_address || "no-email",
-      username: `${data.first_name || ""} ${data.last_name || ""}`.trim(),
-      image: data.image_url || "",
-      recentSearchedCities: "",
-    };
+app.get("/", (req, res) => res.send("API is Working"));
 
-    console.log("Webhook event type:", type);
-    console.log("User Data:", userData);
-
-    switch (type) {
-      case "user.created":
-        await User.create(userData);
-        break;
-      case "user.updated":
-        await User.findByIdAndUpdate(data.id, userData);
-        break;
-      case "user.deleted":
-        await User.findByIdAndDelete(data.id);
-        break;
-      default:
-        break;
-    }
-
-    res.json({ success: true, message: "Webhook received" });
-  } catch (error) {
-    console.error("Webhook error:", error.message);
-    res.status(400).json({ success: false, message: error.message });
-  }
-};
-
-export default clerkWebhooks;
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
