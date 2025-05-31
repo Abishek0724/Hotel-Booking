@@ -1,25 +1,49 @@
-import express from "express";
-import "dotenv/config";
-import cors from "cors";
-import connectDB from "./configs/db.js";
-import { clerkMiddleware } from '@clerk/express'
-import clerkWebhooks from "./controllers/clerkWebhooks.js";
+import User from "../models/User.js";
+import { Webhook } from "svix";
 
+const clerkWebhooks = async (req, res) => {
+  try {
+    const whook = new Webhook(process.env.CLERK_WEBHOOK_SECRET);
 
+    const headers = {
+      "svix-id": req.headers["svix-id"],
+      "svix-timestamp": req.headers["svix-timestamp"],
+      "svix-signature": req.headers["svix-signature"],
+    };
 
-connectDB()
-const app = express();
-app.use(cors()); // enable cross origin sharing
+    const evt = await whook.verify(JSON.stringify(req.body), headers);
+    const { data, type } = evt;
 
+    const userData = {
+      _id: data.id,
+      email: data.email_addresses?.[0]?.email_address || "no-email",
+      username: `${data.first_name || ""} ${data.last_name || ""}`.trim(),
+      image: data.image_url || "",
+      recentSearchedCities: "",
+    };
 
-//middleware
-app.use(express.json())
-app.use(clerkMiddleware())
+    console.log("Webhook event type:", type);
+    console.log("User Data:", userData);
 
-//api to listen clerk webhook
-app.use("/api/clerk",clerkWebhooks);
+    switch (type) {
+      case "user.created":
+        await User.create(userData);
+        break;
+      case "user.updated":
+        await User.findByIdAndUpdate(data.id, userData);
+        break;
+      case "user.deleted":
+        await User.findByIdAndDelete(data.id);
+        break;
+      default:
+        break;
+    }
 
-app.get('/', (req, res) => res.send("API is Working"));
+    res.json({ success: true, message: "Webhook received" });
+  } catch (error) {
+    console.error("Webhook error:", error.message);
+    res.status(400).json({ success: false, message: error.message });
+  }
+};
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+export default clerkWebhooks;
