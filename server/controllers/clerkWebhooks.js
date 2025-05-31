@@ -20,12 +20,13 @@ const clerkWebhooks= async(req,res)=>{
         //getting data from requst body
         const{data,type}=req.body
 
-        const userDate={
-            _id:data.id,
-            email:data.email_addresses[0].email_addresses,
+        const userData = {
+            _id: data.id,
+            email: data.email_addresses[0].email_address, 
             username: data.first_name + " " + data.last_name,
             image: data.image_url,
-        }
+            
+        };
         //switcjh casefor dffevents
 
         switch (type) {
