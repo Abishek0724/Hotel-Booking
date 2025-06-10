@@ -6,9 +6,6 @@ const clerkWebhooks = async (req, res) => {
     // Log the headers to ensure they are present
     console.log("Headers:", req.headers);
 
-    // Log the raw body, but be careful with sensitive data in production logs
-    // console.log("Raw Body:", req.body.toString()); 
-
     try {
         const WEBHOOK_SECRET = process.env.CLERK_WEBHOOK_SECRET;
         if (!WEBHOOK_SECRET) {
@@ -40,27 +37,37 @@ const clerkWebhooks = async (req, res) => {
         console.log(`Webhook Type: ${type}`);
         console.log("Webhook Data:", data);
 
-        const userData = {
-            _id: data.id,
-            email: data.email_addresses[0].email_address,
-            username: data.first_name
-                ? `${data.first_name} ${data.last_name || ''}`.trim()
-                : data.email_addresses[0].email_address,
-            image: data.image_url,
-            recentSearchedCities: [], // ✅ FIXED: valid default
-            };
+     
 
         console.log("Prepared User Data:", userData);
 
         switch (type) {
             case "user.created": {
                 console.log("Attempting to create user...");
+                   const userData = {
+                    _id: data.id,
+                    email: data.email_addresses[0].email_address,
+                    username: data.first_name
+                        ? `${data.first_name} ${data.last_name || ''}`.trim()
+                        : data.email_addresses[0].email_address,
+                    image: data.image_url,
+                    recentSearchedCities: [],
+            };
                 await User.create(userData);
                 console.log("User created successfully!");
                 break;
             }
             case "user.updated": {
                 console.log(`Attempting to update user with ID: ${data.id}...`);
+                   const userData = {
+                        _id: data.id,
+                        email: data.email_addresses[0].email_address,
+                        username: data.first_name
+                            ? `${data.first_name} ${data.last_name || ''}`.trim()
+                            : data.email_addresses[0].email_address,
+                        image: data.image_url,
+                        recentSearchedCities: [],
+                        };
                 await User.findByIdAndUpdate(data.id, userData, { new: true }); // { new: true } returns the updated document
                 console.log("User updated successfully!");
                 break;
